@@ -86,9 +86,7 @@ def softmax_loss_vectorized(W, X, y, reg):
     
     for j in range(num_classes):
         weight = np.exp(scores[:,j]) / normalization_sum
-
         weightedX = np.multiply(weight[:,np.newaxis], X)
-
         dW2[:,j] += np.sum(weightedX, axis=0)
                             
     dW = (dW1 + dW2) / num_train
