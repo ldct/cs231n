@@ -31,7 +31,7 @@ class TwoLayerNet(object):
         - num_classes: An integer giving the number of classes to classify
         - dropout: Scalar between 0 and 1 giving dropout strength.
         - weight_scale: Scalar giving the standard deviation for random
-            initialization of the weights.
+          initialization of the weights.
         - reg: Scalar giving L2 regularization strength.
         """
         self.params = {}
@@ -156,7 +156,10 @@ class FullyConnectedNet(object):
             self.params['W' + str(i+1)] = np.random.normal(0, weight_scale, (hidden_dims[i-1], hidden_dims[i]))
         self.params['W' + str(L)] = np.random.normal(0, weight_scale, (hidden_dims[-1], num_classes))
 
-
+        if use_batchnorm:
+            for i, hd in enumerate(hidden_dims):
+                self.params['beta' + str(i+1)] = np.zeros(hd)
+                self.params['gamma' + str(i+1)] = np.ones(hd)
         
         ############################################################################
         # When using batch normalization, store scale and shift parameters for the #
@@ -164,7 +167,6 @@ class FullyConnectedNet(object):
         # beta2, etc. Scale parameters should be initialized to one and shift      #
         # parameters should be initialized to zero.                                #
         ############################################################################
-        pass
 
         # When using dropout we need to pass a dropout_param dictionary to each
         # dropout layer so that the layer knows the dropout probability and the mode
@@ -212,12 +214,14 @@ class FullyConnectedNet(object):
         # {affine - [batch norm] - relu - [dropout]} x (L - 1) - affine - softmax
     
         affine_caches = {}
+        if self.use_batchnorm: batchnorm_caches = {}
         relu_caches = {}
     
         activations = X
             
         for i in range(self.L-1):
             activations, affine_caches[i+1] = affine_forward(activations, self.params['W' + str(i+1)], self.params['b' + str(i+1)]) 
+            if self.use_batchnorm: activations, batchnorm_caches[i+1] = batchnorm_forward(activations, self.params['gamma' + str(i+1)], self.params['beta' + str(i+1)], self.bn_params[i])
             activations, relu_caches[i+1] = relu_forward(activations)
                                     
         scores, scores_cache = affine_forward(activations, self.params['W' + str(self.L)], self.params['b' + str(self.L)])
@@ -242,6 +246,7 @@ class FullyConnectedNet(object):
         
         for i in list(range(self.L-1))[::-1]:
             gradients = relu_backward(gradients, relu_caches[i+1])
+            if self.use_batchnorm: gradients, grads['gamma' + str(i+1)], grads['beta' + str(i+1)] = batchnorm_backward(gradients, batchnorm_caches[i+1])             
             gradients, grads['W' + str(i+1)], grads['b' + str(i+1)] = affine_backward(gradients, affine_caches[i+1])        
         
         ############################################################################
