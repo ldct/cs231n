@@ -350,23 +350,19 @@ def conv_forward_naive(x, w, b, conv_param):
     padded_x = np.pad(x, mode='constant', pad_width=((0, 0), (0, 0), (pad, pad), (pad, pad)))
     
     out = np.zeros((N, F, Hp, Wp))
+    
+    for i in range(Hp):
+        for j in range(Wp):
+            xx, yy = i*stride, j*stride
+            patch = padded_x[:, :, xx:xx+HH, yy:yy+WW]
 
-    for n in range(N):
-        for f in range(F):
-            filter_weights = w[f]
-            for i in range(Hp):
-                for j in range(Wp):
-                    xx, yy = i*stride, j*stride
-                    patch = padded_x[n, :, xx:xx+HH, yy:yy+WW]
-                    
-                    out[n, f, i, j] = np.sum(filter_weights*patch) + b[f]
-                    
+            t = w[np.newaxis, :, ...]
+            u = patch[:, np.newaxis, ...]
             
-    #############################################################################
-    # TODO: Implement the convolutional forward pass.                           #
-    # Hint: you can use the function np.pad for padding.                        #
-    #############################################################################
-    cache = (x, w, b, conv_param)
+            out[:, :, i, j] = np.sum(t*u, axis=(2, 3, 4)) + b
+                    
+    cache = (x, padded_x, w, b, conv_param)
+    
     return out, cache
 
 
@@ -383,14 +379,32 @@ def conv_backward_naive(dout, cache):
     - dw: Gradient with respect to w
     - db: Gradient with respect to b
     """
+    x, padded_x, w, b, conv_param = cache
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+    pad, stride = conv_param['pad'], conv_param['stride']
+    
+    Hp = 1 + (H + 2 * pad - HH) / stride
+    Wp = 1 + (W + 2 * pad - WW) / stride
+
+    
     dx, dw, db = None, None, None
-    #############################################################################
-    # TODO: Implement the convolutional backward pass.                                                    #
-    #############################################################################
-    pass
-    #############################################################################
-    #                                                         END OF YOUR CODE                                                            #
-    #############################################################################
+
+    db = np.sum(dout, axis=(0, 2, 3))
+    dw = np.zeros_like(w)
+    dpadded_x = np.zeros_like(padded_x)
+
+    for i in range(Hp):
+        for j in range(Wp):
+            xx, yy = i*stride, j*stride
+            patch = padded_x[:, np.newaxis, :, xx:xx+HH, yy:yy+WW]
+
+            dw += np.sum(patch*dout[:, :, np.newaxis, i:i+1, j:j+1], axis=0)
+            dpadded_x[:, :, xx:xx+HH, yy:yy+WW] += np.sum(w[np.newaxis,:, :, :, :]*dout[:, :, np.newaxis, i:i+1, j:j+1], axis=1)
+
+                    
+    dx = dpadded_x[:, :, pad:H+pad, pad:W+pad]
+    
     return dx, dw, db
 
 
@@ -410,13 +424,31 @@ def max_pool_forward_naive(x, pool_param):
     - cache: (x, pool_param)
     """
     out = None
-    #############################################################################
-    # TODO: Implement the max pooling forward pass                                                            #
-    #############################################################################
-    pass
-    #############################################################################
-    #                                                         END OF YOUR CODE                                                            #
-    #############################################################################
+
+    N, C, H, W = x.shape
+    pool_height, pool_width, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+    
+    Hp = 1 + (H - pool_height) / stride
+    Wp = 1 + (W - pool_width) / stride
+    
+    out = np.zeros((N, C, Hp, Wp))
+
+#     for n in range(N):
+#         for c in range(C):
+#             for i in range(Hp):
+#                 for j in range(Wp):
+#                     xx, yy = i*stride, j*stride
+
+#                     patch = x[n, c, xx:xx+pool_height, yy:yy+pool_width]
+#                     out[n, c, i, j] = np.max(patch)
+    
+    for i in range(Hp):
+        for j in range(Wp):
+            xx, yy = i*stride, j*stride
+
+            patch = x[:, :, xx:xx+pool_height, yy:yy+pool_width]
+            out[:, :, i, j] = np.max(patch, axis=(2, 3))
+                
     cache = (x, pool_param)
     return out, cache
 
@@ -432,14 +464,32 @@ def max_pool_backward_naive(dout, cache):
     Returns:
     - dx: Gradient with respect to x
     """
-    dx = None
-    #############################################################################
-    # TODO: Implement the max pooling backward pass                                                         #
-    #############################################################################
-    pass
-    #############################################################################
-    #                                                         END OF YOUR CODE                                                            #
-    #############################################################################
+
+    from numpy import unravel_index
+    
+    x, pool_param = cache
+    
+    N, C, H, W = x.shape
+    pool_height, pool_width, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+    
+    Hp = 1 + (H - pool_height) / stride
+    Wp = 1 + (W - pool_width) / stride
+
+    dx = np.zeros_like(x)
+    
+    for n in range(N):
+        for c in range(C):
+            for i in range(Hp):
+                for j in range(Wp):
+                    xx, yy = i*stride, j*stride
+
+                    patch = x[n, c, xx:xx+pool_height, yy:yy+pool_width]
+                    idx_of_max = unravel_index(patch.argmax(), patch.shape)
+                    
+                    dx[n, c, xx + idx_of_max[0], yy + idx_of_max[1]] += dout[n, c, i, j]                
+
+    
+    
     return dx
 
 
