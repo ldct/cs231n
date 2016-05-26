@@ -168,17 +168,6 @@ def batchnorm_forward(x, gamma, beta, bn_param):
                 
         out = shifted_x
         cache = (x.shape[0], scaled_x, gamma, centered_x, stds)
-        #############################################################################
-        # TODO: Implement the training-time forward pass for batch normalization.   #
-        # Use minibatch statistics to compute the mean and variance, use these      #
-        # statistics to normalize the incoming data, and scale and shift the        #
-        # normalized data using gamma and beta.                                     #
-        # You should store the output in the variable out. Any intermediates that   #
-        # you need for the backward pass should be stored in the cache variable.    #
-        # You should also use your computed sample mean and variance together with  #
-        # the momentum variable to update the running mean and running variance,    #
-        # storing your result in the running_mean and running_var variables.        #
-        #############################################################################
     elif mode == 'test':
         centered_x = x - running_mean
         stds = np.sqrt(running_var)
@@ -188,13 +177,6 @@ def batchnorm_forward(x, gamma, beta, bn_param):
                 
         out = shifted_x
         cache = None
-        #############################################################################
-        # TODO: Implement the test-time forward pass for batch normalization. Use   #
-        # the running mean and variance to normalize the incoming data, then scale  #
-        # and shift the normalized data using gamma and beta. Store the result in   #
-        # the out variable.                                                         #
-        #############################################################################
-        pass
     else:
         raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
 
@@ -265,16 +247,12 @@ def batchnorm_backward_alt(dout, cache):
     """
     dx, dgamma, dbeta = None, None, None
     #############################################################################
-    # TODO: Implement the backward pass for batch normalization. Store the            #
-    # results in the dx, dgamma, and dbeta variables.                                                     #
-    #                                                                                                                                                     #
-    # After computing the gradient with respect to the centered inputs, you         #
-    # should be able to compute gradients with respect to the inputs in a             #
-    # single statement; our implementation fits on a single 80-character line.    #
-    #############################################################################
-    pass
-    #############################################################################
-    #                                                         END OF YOUR CODE                                                            #
+    # TODO: Implement the backward pass for batch normalization. Store the      #
+    # results in the dx, dgamma, and dbeta variables.                           #
+    #                                                                           #
+    # After computing the gradient with respect to the centered inputs, you     #
+    # should be able to compute gradients with respect to the inputs in a       #
+    # single statement; our implementation fits on a single 80-character line.  #
     #############################################################################
     
     return dx, dgamma, dbeta
@@ -289,10 +267,10 @@ def dropout_forward(x, dropout_param):
     - dropout_param: A dictionary with the following keys:
         - p: Dropout parameter. We drop each neuron output with probability p.
         - mode: 'test' or 'train'. If the mode is train, then perform dropout;
-            if the mode is test, then just return the input.
+          if the mode is test, then just return the input.
         - seed: Seed for the random number generator. Passing seed makes this
-            function deterministic, which is needed for gradient checking but not in
-            real networks.
+          function deterministic, which is needed for gradient checking but not in
+          real networks.
 
     Outputs:
     - out: Array of the same shape as x.
@@ -307,22 +285,10 @@ def dropout_forward(x, dropout_param):
     out = None
 
     if mode == 'train':
-        ###########################################################################
-        # TODO: Implement the training phase forward pass for inverted dropout.     #
-        # Store the dropout mask in the mask variable.                                                        #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                                                        END OF YOUR CODE                                                         #
-        ###########################################################################
+        mask = (np.random.random_sample(x.shape) > p)
+        out = x*mask
     elif mode == 'test':
-        ###########################################################################
-        # TODO: Implement the test phase forward pass for inverted dropout.             #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                                                        END OF YOUR CODE                                                         #
-        ###########################################################################
+        out = x*(1-p)
 
     cache = (dropout_param, mask)
     out = out.astype(x.dtype, copy=False)
@@ -343,13 +309,7 @@ def dropout_backward(dout, cache):
     
     dx = None
     if mode == 'train':
-        ###########################################################################
-        # TODO: Implement the training phase backward pass for inverted dropout.    #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                                                        END OF YOUR CODE                                                         #
-        ###########################################################################
+        dx = dout*mask
     elif mode == 'test':
         dx = dout
     return dx
@@ -361,7 +321,7 @@ def conv_forward_naive(x, w, b, conv_param):
 
     The input consists of N data points, each with C channels, height H and width
     W. We convolve each input with F different filters, where each filter spans
-    all C channels and has height HH and width HH.
+    all C channels and has height HH and width WW.
 
     Input:
     - x: Input data of shape (N, C, H, W)
@@ -379,13 +339,32 @@ def conv_forward_naive(x, w, b, conv_param):
     - cache: (x, w, b, conv_param)
     """
     out = None
+    
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+    pad, stride = conv_param['pad'], conv_param['stride']
+    
+    Hp = 1 + (H + 2 * pad - HH) / stride
+    Wp = 1 + (W + 2 * pad - WW) / stride
+    
+    padded_x = np.pad(x, mode='constant', pad_width=((0, 0), (0, 0), (pad, pad), (pad, pad)))
+    
+    out = np.zeros((N, F, Hp, Wp))
+
+    for n in range(N):
+        for f in range(F):
+            filter_weights = w[f]
+            for i in range(Hp):
+                for j in range(Wp):
+                    xx, yy = i*stride, j*stride
+                    patch = padded_x[n, :, xx:xx+HH, yy:yy+WW]
+                    
+                    out[n, f, i, j] = np.sum(filter_weights*patch) + b[f]
+                    
+            
     #############################################################################
-    # TODO: Implement the convolutional forward pass.                                                     #
-    # Hint: you can use the function np.pad for padding.                                                #
-    #############################################################################
-    pass
-    #############################################################################
-    #                                                         END OF YOUR CODE                                                            #
+    # TODO: Implement the convolutional forward pass.                           #
+    # Hint: you can use the function np.pad for padding.                        #
     #############################################################################
     cache = (x, w, b, conv_param)
     return out, cache

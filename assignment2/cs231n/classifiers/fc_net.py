@@ -161,13 +161,6 @@ class FullyConnectedNet(object):
                 self.params['beta' + str(i+1)] = np.zeros(hd)
                 self.params['gamma' + str(i+1)] = np.ones(hd)
         
-        ############################################################################
-        # When using batch normalization, store scale and shift parameters for the #
-        # first layer in gamma1 and beta1; for the second layer use gamma2 and     #
-        # beta2, etc. Scale parameters should be initialized to one and shift      #
-        # parameters should be initialized to zero.                                #
-        ############################################################################
-
         # When using dropout we need to pass a dropout_param dictionary to each
         # dropout layer so that the layer knows the dropout probability and the mode
         # (train / test). You can pass the same dropout_param to each dropout layer.
@@ -216,13 +209,15 @@ class FullyConnectedNet(object):
         affine_caches = {}
         if self.use_batchnorm: batchnorm_caches = {}
         relu_caches = {}
-    
+        if self.use_dropout: dropout_caches = {}
+            
         activations = X
             
         for i in range(self.L-1):
             activations, affine_caches[i+1] = affine_forward(activations, self.params['W' + str(i+1)], self.params['b' + str(i+1)]) 
             if self.use_batchnorm: activations, batchnorm_caches[i+1] = batchnorm_forward(activations, self.params['gamma' + str(i+1)], self.params['beta' + str(i+1)], self.bn_params[i])
             activations, relu_caches[i+1] = relu_forward(activations)
+            if self.use_dropout: activations, dropout_caches[i+1] = dropout_forward(activations, self.dropout_param)
                                     
         scores, scores_cache = affine_forward(activations, self.params['W' + str(self.L)], self.params['b' + str(self.L)])
                 
@@ -245,6 +240,7 @@ class FullyConnectedNet(object):
         gradients, grads['W' + str(self.L)], grads['b' + str(self.L)] = affine_backward(gradients, scores_cache)
         
         for i in list(range(self.L-1))[::-1]:
+            if self.use_dropout: gradients = dropout_backward(gradients, dropout_caches[i+1])
             gradients = relu_backward(gradients, relu_caches[i+1])
             if self.use_batchnorm: gradients, grads['gamma' + str(i+1)], grads['beta' + str(i+1)] = batchnorm_backward(gradients, batchnorm_caches[i+1])             
             gradients, grads['W' + str(i+1)], grads['b' + str(i+1)] = affine_backward(gradients, affine_caches[i+1])        
